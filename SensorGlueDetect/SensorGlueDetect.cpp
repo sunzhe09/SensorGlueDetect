@@ -1,73 +1,37 @@
 // SensorGlueDetect.cpp : 定义控制台应用程序的入口点。
-
-
 #include "stdafx.h"
 #include<ipp.h>
 #include"string.h"
 #include <stdio.h>
 #include"mkl.h"
-#include<algorithm>
 #include<opencv2\opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>  /*该模块包含图像处理函数*/
 #include <opencv2/highgui/highgui.hpp>
-#include<vector>
 #include<math.h>
 #include<io.h>
 #include<iostream>
+#include<time.h>
+#define _CRTDBG_MAP_ALLOC
+#include<crtdbg.h>
 
-
-#define THRESH_LOW    40.f /* Low threshold for edges detection */
-#define THRESH_HIGHT  80.f /* Upper threshold for edges detection */
-#define BORDER_VAL 0
-
-
-typedef struct hline_t
-{
-	int p;
-	int theta;
-}hline;
-
-typedef struct _point_t
-{
-	int x;
-	int y;
-}_point;
-
-
-
-#ifndef max
-#define max(a,b)  (((a) > (b)) ? (a) : (b)) 
-
-#endif
-#ifndef min
-#define min(a,b)  (((a) > (b)) ? (b) : (a))
-
+#ifdef _DEBUG //这个要加上，否则不会输出定义到那个文件中（及不包含存在内存泄露的该cpp文件的相关信息）  
+#define new  new(_NORMAL_BLOCK, __FILE__, __LINE__)  
 #endif
 
 using namespace std;
 
-void LineFitLeastSquares(float *data_x, float *data_y, int data_n, vector<float> &vResult);
-void hough_line(_point *points, int count, int width, int height, hline* line);
-void drawLine(cv::Mat &image, double theta, double rho, cv::Scalar color);
-int RegionsSegement(unsigned char *src, int srcStep, IppiSize roiSize, const char *filename);
-cv::Mat SetRegionsColor(const char *filename, int markersNum, IppiSize roiSize, Ipp16u *pMarker, int markerStep);
-int MorphologyEroAndDiade(unsigned char* src, int srcStep, int srcWidth, int srcHeight, unsigned char *  dst);
-void LigitEnhance(Ipp8u * src, int srcStep, IppiSize roiSize);
-void loadImageAndsetROI(unsigned char* src, int width, int height, int srcStep, int rel, int thre, IppiRect &ROI);
-void LightEvaluate(unsigned char *src, int SrcStep, IppiRect ROI);
-
 int main()
 {
-	
-	
-	//clock_t start, finish;
-	//double totaltime;
+
+	//检测内存泄漏
+	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
+		
+	clock_t start, finish;
+	double totaltime;
 	IppStatus status = ippStsNoErr;
 
 	//const char* filename = "C:/Users/bm00133/Desktop/点胶侧面图像/20171121图片/2017-11-21_16_47_35_186.bmp";
 	const char* filename = "C:/Users/bm00133/Desktop/标准上下半圈/标准下半圈.bmp";
-
-
 	const char* path1 = "C:/Users/bm00133/Desktop/新建文件夹/暗图像/*.bmp";
 	string exten1 = "C:/Users/bm00133/Desktop/新建文件夹/暗图像/";
 	vector<string> filenames;
@@ -75,6 +39,7 @@ int main()
 	struct _finddata_t fileinfo;
 	long handle;
 	handle = _findfirst(path1, &fileinfo);
+
 	if (handle == -1)
 	{
 		cout << "fail..." << endl;
@@ -90,13 +55,8 @@ int main()
 	
 		filenames.push_back(exten1 + fileinfo.name);
 	}
-	_findclose(handle);
+		_findclose(handle);
 
-
-		//声明点
-	int *data_x = NULL;
-	int *data_y = NULL;
-	int data_n = 0;
 
 	for (int num = 0; num < filenames.size(); num++)
 	{
@@ -106,153 +66,36 @@ int main()
 
 		IppiRect ROI = { pImage->width / 2-900,pImage->height/2-900,1800, 1800};
 
+		start = clock();
 
-		LightEvaluate((unsigned char *)pImage->imageData, pImage->widthStep,  ROI);
+		LightEvaluate((unsigned char *)pImage->imageData, pImage->widthStep, ROI,num);
 
-		//start = clock();
+		finish = clock();
+		totaltime = (double)(finish - start) / CLOCKS_PER_SEC;
+		cout << "\n此程序的运行时间为" << totaltime << "秒！" << endl;
 
+	
 		//范围roi区域的数据的指针和roi矩形参数
 		//loadImageAndsetROI((unsigned char*)pImage->imageData, pImage->width, pImage->height, pImage->widthStep, 40, 180, ROI);
 		//cvRectangle(pImage, cvPoint(ROI.x, ROI.y), cvPoint(ROI.width + ROI.x - 1, ROI.height + ROI.y - 1), cvScalar(255), 3, 4, 0);
 
+		/*	int Src_StepBytes = 0;
 
-	/*	int Src_StepBytes = 0;
+		int flag = RegionsSegement(pSrcImage, Src_StepBytes, roi_size, filename);
 
-
-		int relative = 15;
-		IppiSize roi_size = IppiSize();
-		roi_size.height = ROI.height;
-		roi_size.width = ROI.width;
-
-		Ipp8u *pSrcImage = NULL;*/
-		//pSrcImage = ippiMalloc_8u_C1(pImage->width, pImage->height, &Src_StepBytes);
-		//ippiCopy_8u_C1R((Ipp8u*)pImage->imageData, pImage->widthStep, pSrcImage, Src_StepBytes, roi_size);
-
-		//pSrcImage = ippiMalloc_8u_C1(ROI.width, ROI.height, &Src_StepBytes);
-		//ippiCopy_8u_C1R((Ipp8u*)pImage->imageData + ROI.y*pImage->widthStep + ROI.x, pImage->widthStep, pSrcImage, Src_StepBytes, roi_size);
-
-		//IplImage *sw = cvCreateImageHeader(cvSize(ROI.width, ROI.height), 8u, 1);
-		//cvSetData(sw, pSrcImage, Src_StepBytes);
-
-		//LigitEnhance(pSrcImage, Src_StepBytes,roi_size );
-	
- 		//int flag = RegionsSegement(pSrcImage, Src_StepBytes, roi_size, filename);
-
-	
-		/*******提取边缘*******/
-
-		//Ipp8u *pBuffer = NULL;
-
-		//int srcStep = 0, dstStep = 0; int iTmpBufSize = 0;
-		//IppiDifferentialKernel filterType = ippFilterScharr;
-		//IppiMaskSize mask = ippMskSize3x3;
-		//IppiBorderType bodertype = ippBorderRepl;
-
-		//status = ippiCannyBorderGetSize(roi_size, filterType, ippMskSize3x3, ipp8u, &iTmpBufSize);
-		//pBuffer = ippsMalloc_8u(iTmpBufSize);
-		//status = ippiCannyBorder_8u_C1R(pSrcImage, Src_StepBytes, pSrcImage, Src_StepBytes, roi_size, filterType, ippMskSize3x3, ippBorderRepl, BORDER_VAL, THRESH_LOW, THRESH_HIGHT, ippNormL2, pBuffer);
-
-		//IplImage *show = cvCreateImageHeader(cvSize(roi_size.width, roi_size.height), 8u, 1);
-		//cvSetData(show, (uchar*)pSrcImage, Src_StepBytes);
-
-		//cvSaveImage("20.bmp",pImage);
-
-
-		//计算距离最远的两个点并连接直线
 		/*
-		//为指针分配内存
-		data_x = (int*)malloc(sizeof(int)*roi_size.width*roi_size.height);
-		data_y = (int*)malloc(sizeof(int)*roi_size.width*roi_size.height);
-		int tempMin = roi_size.width / 2, tempMax = 0;
-		int lefttop_index = 0, righttop_index = 0;
+		Ipp8u2IplimageShow(pDst, dstStep, roi_size);
+		LineFitLeastSquares(data_x, data_y,  data_n, res);
+		double rho = res[1] / (sqrt(1 + res[0]*res[0]));
+		double thea = atan(res[0])+PI/2 ;
+		drawLine(input, thea, rho, cv::Scalar(255,0,0));
+		drawLine(input, thea, rho+675, cv::Scalar(0,0,255));
+		*/
 
-		for (int i = 0; i < roi_size.height; i++)
-		{
-			for (int j = 0; j < roi_size.width; j++)
-			{
-				if (pSrcImage[i*Src_StepBytes + j] != 0)
-				{
-
-					data_x[data_n] = j;
-					data_y[data_n] = i;
-					data_n++;
-					if (max(tempMax, j) > tempMax)
-					{
-						tempMax = j;
-						righttop_index = data_n - 1;
-					}
-
-					if (min(tempMin, j) < tempMin)
-					{
-						tempMin = j;
-						lefttop_index = data_n - 1;
-					}
-
-				}
-			}
-
-		}
-
-
-		int maxdist = 0;
-		int row = 0, col = 0, row1 = 0, col1 = 0;
-		int k = max(data_y[righttop_index], data_y[lefttop_index]);
-
-		for (int i = 0; i < data_n; ++i)
-		{
-			for (int j = i + 1; j < data_n; ++j)
-			{
-				if (data_y[j]<k &&data_y[i]<k&&abs(data_y[i] - data_y[j]) <= 20 && data_x[i] > tempMin + relative&&data_x[j] > tempMin + relative&&data_x[i] < tempMax - relative&&data_x[j] < tempMax - relative)
-				{
-					int distance = (data_x[i] - data_x[j])*(data_x[i] - data_x[j]) + (data_y[i] - data_y[j])*(data_y[i] - data_y[j]);
-					if (distance > maxdist)
-					{
-						maxdist = distance;
-						row = data_y[i];
-						col = data_x[i];
-						row1 = data_y[j];
-						col1 = data_x[j];
-					}
-				}
-			}
-
-		}
-
-
-		_point  pt1;
-		pt1.x = col;
-		pt1.y = row;
-		_point  pt2;
-		pt2.x = col1;
-		pt2.y = row1;
-
-		//finish = clock();
-		//totaltime = (double)(finish - start) / CLOCKS_PER_SEC;
-		//cout << "\n此程序的运行时间为" << totaltime << "秒！" << endl;
-		
-
-		cv::Mat input = cv::imread(filename, 1);
-		cv::line(input, cv::Point(pt1.x + ROI.x, pt1.y + ROI.y), cv::Point(pt2.x + ROI.x, pt2.y + ROI.y), cv::Scalar(0, 0, 255));
-		cv::line(input, cv::Point(data_x[lefttop_index] + ROI.x, data_y[lefttop_index] + ROI.y), cv::Point(data_x[righttop_index] + ROI.x, data_y[righttop_index] + ROI.y), cv::Scalar(0, 255, 255));
-	
-	*/
-
-	/*Ipp8u2IplimageShow(pDst, dstStep, roi_size);
-	LineFitLeastSquares(data_x, data_y,  data_n, res);
-	double rho = res[1] / (sqrt(1 + res[0]*res[0]));
-	double thea = atan(res[0])+PI/2 ;
-	drawLine(input, thea, rho, cv::Scalar(255,0,0));
-	drawLine(input, thea, rho+675, cv::Scalar(0,0,255));*/
-
-	/*ippsFree(pBuffer);*/
-  
-	//free(data_x);
-	//free(data_y);
-	//printf("Exit status %d (%s)\n", (int)status, ippGetStatusString(status));
 
 	 }
 
-	cvWaitKey(27);
+	cvWaitKey(0);
 	return (int)status;
 	
 	
@@ -434,9 +277,6 @@ void LigitEnhance(Ipp8u * src,int srcStep,IppiSize roiSize)
 	ippiMulC_8u_C1RSfs(src,srcStep, mulFacorValue,src,srcStep,roiSize,0);
 	
 
-	
-	
-
 }
 
 int MorphologyEroAndDiade(unsigned char* src, int srcStep, int srcWidth, int srcHeight, unsigned char *dst)
@@ -540,7 +380,6 @@ void Mat2Ipp8u(cv::Mat input,Ipp8u * &dst)
 	ippiCopy_8u_C1R((Ipp8u*)input.data, input.step[0], dst, dstStep, roi);
 	
 }
-
 
 
 void hough_line(_point *points, int count, int width, int height, hline* line)
@@ -1175,7 +1014,7 @@ int VisBAIP_MorphologyConnectComLabel_FloodFill(IMG_UBBUF pBinary, IMG_UBBUF pMa
 	return 0;
 }
 
-void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
+void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI ,int num)
 {
 
 	Ipp8u* pSrc = NULL;
@@ -1193,11 +1032,8 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 	ippiComputeThreshold_Otsu_8u_C1R(pSrc, pSrc_step, IppiSize{ ROI.width,ROI.height }, &threshold);
 	ippiCompareC_8u_C1R(pSrc, pSrc_step, threshold, pSrc, pSrc_step, IppiSize{ ROI.width,ROI.height }, ippcmpop);
 
-	IplImage *show = cvCreateImageHeader(cvSize(ROI.width, ROI.height), 8u, 1);
-	cvSetData(show, (uchar*)pSrc, pSrc_step);
-
+	//imgShow(pSrc, pSrc_step, ROI.width, ROI.height);
 	//ippiThreshold_LTValGTVal_8u_C1R(pSrc, pSrc_step, pSrc, pSrc_step, IppiSize{ ROI.width,ROI.height }, 10, 255, 10, 0);
-
 
 	//连通域分析
 	unsigned short *pMarker = NULL; 
@@ -1209,7 +1045,6 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 
 	int markerStep = 0;
 	pMarker = ippiMalloc_16u_C1(ROI.width, ROI.height, &markerStep);
-
 	ippiConvert_8u16u_C1R(pSrc, pSrc_step, pMarker, markerStep, IppiSize{ ROI.width,ROI.height });
 
 	//计算内存的空间
@@ -1221,7 +1056,6 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 
 	unsigned int *pixelNum = ippsMalloc_32u(markersNum);
 	ippsSet_32s(0, (signed int*)pixelNum, markersNum);
-
 
 
 	for (int row = 0; row < ROI.height; ++row)
@@ -1245,9 +1079,6 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 		}
 	}
 
-
-
-
 	unsigned char *DeleteIndex = ippsMalloc_8u(markersNum);
 	ippsSet_8u(0, DeleteIndex, markersNum);
 	double Area = 0.0;
@@ -1256,15 +1087,16 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 	for (int i = 0; i < markersNum; i++)
 	{
 		//面积筛选，去除较大或者较小区域
-		if (pixelNum[i] <= 100000|| pixelNum[i]>400000)
+		if (pixelNum[i] <= 200000|| pixelNum[i]>400000)
 		{
 			DeleteIndex[i] = 1;
 
 		}
 	}
 
+
 	//删除不合要求区域
-	int Lbl = 0,n=0;
+	int n=0;
 	for (int row = 0; row < ROI.height; row++)
 	{
 		for (int col = 0; col < ROI.width; col++)
@@ -1272,7 +1104,7 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 			int	 label = (int)pMarker[col + row*(markerStep / sizeof(unsigned short))];
 			if (label == 0 || 1 == DeleteIndex[label - 1])
 			{	
-				src[col + ROI.x + (row + ROI.y)*SrcStep] = 0;
+				//src[col + ROI.x + (row + ROI.y)*SrcStep] = 0;
 				continue;
 			}
 			else
@@ -1280,35 +1112,134 @@ void LightEvaluate(unsigned char *src,int SrcStep,IppiRect ROI )
 				//这里理论上只有一个region，就是内圆中心的部分
 				Area += src[col+ROI.x + (row+ROI.y)*SrcStep ];
 				src[col+ ROI.x + (row + ROI.y)*SrcStep ] = 255;
-				Lbl = label;
+			
 				n++;
 			}
 		
-			
-			
 		}
 	}
 	
-
-	
+	imgShow(src, SrcStep,2448,2048);
 
 	Area /=n;
 
-	cout << "灰度均值为："<<Area << endl;
+	cout <<num<< "灰度均值为："<<Area << endl;
 
-
+	ippFree(pSrc);
+	ippFree(pBuffer);
+	ippFree(pMarker);
 	
 
 }
 
-void imgShow(unsigned char src,int srcStep,int width,int height)
+void imgShow(unsigned char* src,int srcStep,int width,int height)
 {
 	IplImage *show = cvCreateImageHeader(cvSize(width, height), 8u, 0);
 	cvSetData(show, (uchar*)src, srcStep);
-
-	cvWaitKey(0);
-
 	cvReleaseImageHeader(&show);
+}
+
+int getCannyBoder(Ipp8u*pSrcImage,int Src_StepBytes,IppiSize roi_size)
+{
+	IppStatus status = ippStsNoErr;
+
+	Ipp8u *pBuffer = NULL;
+
+	int srcStep = 0, dstStep = 0; int iTmpBufSize = 0;
+	IppiDifferentialKernel filterType = ippFilterScharr;
+	IppiMaskSize mask = ippMskSize3x3;
+	IppiBorderType bodertype = ippBorderRepl;
+
+	status = ippiCannyBorderGetSize(roi_size, filterType, ippMskSize3x3, ipp8u, &iTmpBufSize);
+	pBuffer = ippsMalloc_8u(iTmpBufSize);
+	status = ippiCannyBorder_8u_C1R(pSrcImage, Src_StepBytes, pSrcImage, Src_StepBytes, roi_size, filterType, ippMskSize3x3, ippBorderRepl, BORDER_VAL, THRESH_LOW, THRESH_HIGHT, ippNormL2, pBuffer);
+
+	IplImage *show = cvCreateImageHeader(cvSize(roi_size.width, roi_size.height), 8u, 1);
+	cvSetData(show, (uchar*)pSrcImage, Src_StepBytes);
+
+	return status;
+}
+
+void maxDistancePoints(Ipp8u*pSrcImage,int Src_StepBytes,IppiSize roi_size,int relative,IppiRect ROI, const char* filename )
+{
+	//计算距离最远的两个点并连接直线
+
+	//声明点
+	int *data_x = NULL;
+	int *data_y = NULL;
+	int data_n = 0;
+	//为指针分配内存
+	data_x = (int*)malloc(sizeof(int)*roi_size.width*roi_size.height);
+	data_y = (int*)malloc(sizeof(int)*roi_size.width*roi_size.height);
+	int tempMin = roi_size.width / 2, tempMax = 0;
+	int lefttop_index = 0, righttop_index = 0;
+
+	for (int i = 0; i < roi_size.height; i++)
+	{
+		for (int j = 0; j < roi_size.width; j++)
+		{
+			if (pSrcImage[i*Src_StepBytes + j] != 0)
+			{
+
+				data_x[data_n] = j;
+				data_y[data_n] = i;
+				data_n++;
+				if (max(tempMax, j) > tempMax)
+				{
+					tempMax = j;
+					righttop_index = data_n - 1;
+				}
+
+				if (min(tempMin, j) < tempMin)
+				{
+					tempMin = j;
+					lefttop_index = data_n - 1;
+				}
+
+			}
+		}
+
+	}
+
+
+	int maxdist = 0;
+	int row = 0, col = 0, row1 = 0, col1 = 0;
+	int k = max(data_y[righttop_index], data_y[lefttop_index]);
+
+	for (int i = 0; i < data_n; ++i)
+	{
+		for (int j = i + 1; j < data_n; ++j)
+		{
+			if (data_y[j]<k &&data_y[i]<k&&abs(data_y[i] - data_y[j]) <= 20 && data_x[i] > tempMin + relative&&data_x[j] > tempMin + relative&&data_x[i] < tempMax - relative&&data_x[j] < tempMax - relative)
+			{
+				int distance = (data_x[i] - data_x[j])*(data_x[i] - data_x[j]) + (data_y[i] - data_y[j])*(data_y[i] - data_y[j]);
+				if (distance > maxdist)
+				{
+					maxdist = distance;
+					row = data_y[i];
+					col = data_x[i];
+					row1 = data_y[j];
+					col1 = data_x[j];
+				}
+			}
+		}
+
+	}
+
+
+	_point  pt1;
+	pt1.x = col;
+	pt1.y = row;
+	_point  pt2;
+	pt2.x = col1;
+	pt2.y = row1;
+
+	//用opencv显示
+	cv::Mat input = cv::imread(filename, 1);
+	cv::line(input, cv::Point(pt1.x + ROI.x, pt1.y + ROI.y), cv::Point(pt2.x + ROI.x, pt2.y + ROI.y), cv::Scalar(0, 0, 255));
+	cv::line(input, cv::Point(data_x[lefttop_index] + ROI.x, data_y[lefttop_index] + ROI.y), cv::Point(data_x[righttop_index] + ROI.x, data_y[righttop_index] + ROI.y), cv::Scalar(0, 255, 255));
+
+	
 }
 
 
