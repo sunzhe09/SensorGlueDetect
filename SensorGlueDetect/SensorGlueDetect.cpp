@@ -58,7 +58,7 @@ int main()
 		_findclose(handle);
 
 
-	for (int num = 0; num < filenames.size(); num++)
+	for (unsigned int num = 0; num < filenames.size(); num++)
 	{
 
 		//IplImage的读取方式
